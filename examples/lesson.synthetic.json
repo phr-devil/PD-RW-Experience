@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "lesson_id": "SYN-L001",
+  "category": "experimental_strategy",
+  "claim": "Check prediction-time information legality before interpreting online performance gains.",
+  "mechanism": "Future-visible anchors can bias evaluations of online prediction.",
+  "conditions": [
+    "Real-time streaming prediction under prefix-only constraints."
+  ],
+  "limitations": [
+    "Not a prohibition on retrospective full-sequence analysis."
+  ],
+  "case_refs": [
+    {
+      "case_id": "SYN-001",
+      "source_id": "synthetic:run:001",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "status": "REVIEWED",
+  "review_ref": "synthetic:declared-review:not-independent",
+  "classification": "PUBLIC",
+  "available_at": "2026-02-02",
+  "version": 1,
+  "keywords": [
+    "leakage",
+    "prefix",
+    "预测",
+    "causality"
+  ],
+  "task_types": [
+    "experiment_design",
+    "algorithm_development"
+  ],
+  "conflicts_with": []
+}

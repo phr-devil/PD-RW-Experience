@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "SYN-001",
+  "case_type": "failure",
+  "split": "TRAIN",
+  "classification": "PUBLIC",
+  "available_at": "2026-02-01",
+  "case_group": "synthetic-alpha",
+  "research_question": "Can a sensor forecast be made using only prefix-visible inputs?",
+  "method": "Compare a prefix-only trigger with a hypothetical future-assisted anchor.",
+  "observed_outcome": "Illustrative future-assisted score is invalid for online deployment.",
+  "limitations": [
+    "Synthetic teaching record; no actual experiment or measured data."
+  ],
+  "source_refs": [
+    {
+      "source_id": "synthetic:run:001",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "available_at": "2026-01-31",
+      "visibility": "PUBLIC"
+    }
+  ],
+  "reviewed_target": {
+    "question": "State the declared limitation of this synthetic case.",
+    "answer": "Future-assisted anchors are not prefix-valid.",
+    "review_ref": "synthetic:annotation:001"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "task_id": "SYN-T001",
+  "lesson_id": "SYN-L001",
+  "observation": "Synthetic user reports a test result; no source science attested.",
+  "outcome": "INCONCLUSIVE",
+  "observed_at": "2026-04-01",
+  "evidence_refs": [
+    "synthetic:run:001"
+  ]
+}
