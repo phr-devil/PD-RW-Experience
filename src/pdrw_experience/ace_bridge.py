@@ -40,6 +40,8 @@ def prepare_ace_samples(
     result = {"train": [], "val": [], "blocked": [],
               "engine": "ACE", "model_calls": 0,
               "review_attested": target_receipts is not None}
+    if len(cases) > 32:
+        raise RecordError("ACE_BATCH_SIZE_CAP_EXCEEDED")
     seen_ids = set()
     groups = {}
     source_hashes = {}
@@ -96,12 +98,16 @@ def prepare_ace_samples(
                              "answer": target["answer"],
                              "accepted_answers": target.get("accepted_answers", [])},
                             ensure_ascii=False, sort_keys=True)
+        context = (f"Case {cid}; type {case['case_type']}; research question: "
+                   f"{case['research_question']}; method: {case['method']}; "
+                   f"observed outcome: {case['observed_outcome']}; "
+                   f"limitations: {'; '.join(case['limitations'])}. "
+                   "Answer the reviewed factual extraction question, not general scientific merit.")
+        if len(context) > 12000 or len(target["question"]) > 1500 or len(answer) > 3000:
+            result["blocked"].append({"case_id": cid, "reason": "ACE_INPUT_SIZE_CAP_EXCEEDED"})
+            continue
         result["train" if split == "TRAIN" else "val"].append({
-            "context": (f"Case {cid}; type {case['case_type']}; research question: "
-                        f"{case['research_question']}; method: {case['method']}; "
-                        f"observed outcome: {case['observed_outcome']}; "
-                        f"limitations: {'; '.join(case['limitations'])}. "
-                        "Answer the reviewed factual extraction question, not general scientific merit."),
+            "context": context,
             "question": target["question"],
             "target": answer,
             "review_ref": target["review_ref"],
