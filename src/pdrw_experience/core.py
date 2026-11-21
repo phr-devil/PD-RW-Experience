@@ -92,6 +92,10 @@ def validate_case(record: dict) -> dict:
             raise RecordError("reviewed_target must be object")
         for key in ("question", "answer", "review_ref"):
             _need_string(target, key)
+        if target.get("evaluation_type") != "NORMALIZED_FACT":
+            raise RecordError("reviewed_target requires NORMALIZED_FACT; free-form scientific scoring unsupported")
+        _date(target.get("reviewed_at"), "target.reviewed_at")
+        _strings(target, "accepted_answers")
     return record
 
 
@@ -132,8 +136,17 @@ def validate_lesson(record: dict) -> dict:
     return record
 
 
-def review_lesson(lesson: dict, cases: list[dict]) -> dict:
-    """Validate declared lineage and conflicts, NOT the correctness of conclusions."""
+def review_lesson(
+    lesson: dict, cases: list[dict], *,
+    receipt: dict | None = None, trusted_public_key: bytes | None = None,
+    source_root: str | Path | None = None,
+    source_index: dict | None = None, as_of: str | None = None,
+) -> dict:
+    """A declared match is not an independently attested review.
+
+    Trusted receipt and original source bytes must both be checked before
+    returning an exportable advisory. The signature does NOT certify science.
+    """
     validate_lesson(lesson)
     indexed = {}
     for case in cases:
@@ -159,12 +172,30 @@ def review_lesson(lesson: dict, cases: list[dict]) -> dict:
             reasons.append(f"PRIVATE_TO_PUBLIC:{ref['case_id']}")
     if lesson.get("conflicts_with"):
         reasons.append("CONFLICT_REVIEW_REQUIRED")
+    attested = False
+    requested = any(x is not None for x in (receipt, trusted_public_key, source_root, source_index))
+    if not reasons and requested:
+        if any(x is None for x in (receipt, trusted_public_key, source_root, source_index, as_of)):
+            reasons.append("REVIEW_TRUST_CONFIG_INCOMPLETE")
+        else:
+            try:
+                from .trust import verify_receipt, verify_source_bytes
+                verify_receipt(lesson, receipt, kind="LESSON_REVIEW",
+                               trusted_public_key=trusted_public_key, as_of=as_of)
+                verify_source_bytes(cases, lesson["case_refs"],
+                                    source_root=source_root, source_index=source_index)
+                attested = True
+            except (RecordError, OSError) as exc:
+                reasons.append(f"REVIEW_ATTESTATION_FAILED:{exc}")
     return {
         "lesson_id": lesson["lesson_id"],
-        "status": "BLOCKED" if reasons else "DECLARED_LINEAGE_MATCHED_ONLY",
+        "status": ("BLOCKED" if reasons else
+                   "ATTESTED_SOURCE_MATCHED_FOR_ADVISORY" if attested else
+                   "DECLARED_LINEAGE_MATCHED_ONLY"),
         "reasons": reasons,
+        "source_bytes_verified": attested,
         "scientific_validity_verified": False,
-        "review_authorization_verified": False,
+        "review_authorization_verified": attested,
         "automatic_rule_promotion": False,
     }
 
@@ -175,13 +206,18 @@ def _terms(value: str) -> set[str]:
 
 def retrieve_guidance(
     lessons: list[dict], cases: list[dict], *,
-    task_type: str, query: str, as_of: str,
-    limit: int = 5,
+    task_type: str, query: str, as_of: str, limit: int = 5,
+    receipts: dict | None = None, trusted_public_key: bytes | None = None,
+    source_root: str | Path | None = None, source_index: dict | None = None,
 ) -> list[dict]:
-    """P4 advice only; fail closed on missing provenance, future or test cases."""
+    """P4 advice only. A self-declared REVIEWED field cannot authorize export."""
     _date(as_of, "as_of")
-    if not task_type.strip() or type(limit) is not int or not 1 <= limit <= 20:
+    if not isinstance(task_type, str) or not task_type.strip() or type(limit) is not int or not 1 <= limit <= 20:
         raise RecordError("task_type or limit invalid")
+    if any(x is None for x in (receipts, trusted_public_key, source_root, source_index)):
+        raise RecordError("TRUSTED_REVIEW_AND_SOURCE_REQUIRED_FOR_RETRIEVAL")
+    if not isinstance(receipts, dict):
+        raise RecordError("review receipt catalog must be an object")
     source_cases = {c["case_id"]: validate_case(c) for c in cases}
     if len(source_cases) != len(cases):
         raise RecordError("duplicate case_id")
@@ -193,8 +229,11 @@ def retrieve_guidance(
                 task_type not in lesson["task_types"] or
                 lesson["available_at"] > as_of):
             continue
-        review = review_lesson(lesson, cases)
-        if review["status"] != "DECLARED_LINEAGE_MATCHED_ONLY":
+        review = review_lesson(
+            lesson, cases, receipt=receipts.get(lesson["lesson_id"]),
+            trusted_public_key=trusted_public_key,
+            source_root=source_root, source_index=source_index, as_of=as_of)
+        if review["status"] != "ATTESTED_SOURCE_MATCHED_FOR_ADVISORY":
             continue
         if any(source_cases[ref["case_id"]]["split"] != "TRAIN"
                or source_cases[ref["case_id"]]["available_at"] > as_of
@@ -211,7 +250,7 @@ def retrieve_guidance(
         scored.append((score, lesson["lesson_id"], {
             "id": f"{lesson['lesson_id']}:v{lesson['version']}",
             "level": "experience",
-            "source": f"PD-RW-Experience:{lesson['lesson_id']}:declared_review:{lesson['review_ref']}",
+            "source": f"PD-RW-Experience:{lesson['lesson_id']}:attested_review:{lesson['review_ref']}",
             "text": lesson["claim"],
             "task_types": lesson["task_types"],
             "evidence_refs": ids,
