@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Host-provisioned Source Index v1",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "minProperties": 1,
+    "additionalProperties": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

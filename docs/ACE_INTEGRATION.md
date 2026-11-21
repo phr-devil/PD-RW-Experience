@@ -1,33 +1,38 @@
-# ACE integration: explicit, external, and bounded
+# ACE external engine: supervised factual preflight and explicit paid execution
 
-## Why ACE
+Pinned upstream `https://github.com/ace-agent/ace` commit `82709de050e1db6e6ef2f07bcb0393560b94992a` (Apache-2.0). Do not vendor source or use an unpinned working tree.
 
-Use the official Agentic Context Engineering Generator/Reflector/Curator Playbook loop instead of reimplementing it. Source: https://github.com/ace-agent/ace (Apache-2.0 LICENSE.txt).
-Reviewed baseline commit: 82709de050e1db6e6ef2f07bcb0393560b94992a.
+## Safe preparation
 
-Alternative comparison designs: ExpeL and ReasoningBank. LangMem is a future alternative for memory extraction and retrieval; v0.1 installs none of them.
+~~~bash
+pdrw-exp ace-preflight examples/ace-cases.synthetic.jsonl --as-of 2026-04-01
+~~~
 
-## Offline preparation
+Expected status: `READY_FOR_LOCAL_DRY_RUN_ONLY`, with model_calls=0. This only checks public, typed, date-bounded synthetic data. It does **not** authorize model requests.
 
-Python >= 3.11; install this package alone and run:
-- pdrw-exp ace-preflight examples/ace-cases.synthetic.jsonl
-- Expected: two supervised public cases, distinct TRAIN/VAL case_group, zero model calls.
-- Any missing reviewed_target, private source, or mixed TRAIN/VAL group blocks preparation.
-- No TEST examples are included. Keep future evaluation cases in a separate, frozen study.
+Actual supervised ACE preparation requires case-level `reviewed_target` with `evaluation_type=NORMALIZED_FACT`, `reviewed_at`, reference answer, explicit accepted answers and a review reference. Every target must have a matching external `TARGET_REVIEW` Ed25519 receipt and the source bytes must be hashed under the trusted host root. A typed objective score avoids turning scientifically equivalent free-form answers into false training mistakes.
 
-A reviewed_target is an externally created (question, answer, review_ref) record. The reference target is for **evaluation of extraction**, not a universal truth about scientific merit. An LLM-generated self-label cannot be silently treated as human ground truth.
+Example with authorized local evidence:
 
-## Optional live run
+~~~bash
+pdrw-exp ace-preflight /private/approved_cases.jsonl --as-of 2026-11-21 --receipts /trusted/target-receipts.json --trusted-public-key /trusted/reviewer.pub.pem --source-root /trusted/sources --source-index /trusted/source-index.json
+~~~
 
-1. Clone official ACE into an isolated environment; checkout exactly the pinned commit. Follow official setup (uv, API credentials, dependencies).
-2. Install this package in the same isolated Python environment and verify import ace resolves inside that checkout.
-3. Use ONLY independently approved PUBLIC case metadata with reviewed targets, and prepare a private local --save-dir (outside repository).
-4. Set environment variable PDRW_EXPERIENCE_ALLOW_MODEL_CALLS=YES; pass --execute explicitly.
-5. Example, after provider-level spending limits are configured:
-   pdrw-exp ace-run /path/to/public-reviewed.jsonl --ace-root /path/to/ace --provider openai --model YOUR_SUPPORTED_MODEL --save-dir /private/ace-results --execute
-6. This invokes the upstream ACE.offline run with 1 epoch, 1 reflection round, test_workers=1 and 2048 max tokens per call. **These are configuration limits, NOT an enforced total API call or budget cap.** Provider limits, monitoring and cancellation are required for paid calls.
-7. Raw ACE playbook and generated answers are not scientifically validated. Inspect, extract candidate lessons, link source hashes and perform independent review before marking REVIEWED.
+Result `READY_FOR_EXPLICIT_ACE_RUN` means **the declared factual-target task is eligible**, not that the lesson is scientifically true or a paper is publishable.
 
-Current limitation: no automated converter from raw ACE playbook bullets into trusted Lesson records. This is intentional: source and reasoning attribution must not be invented. First integration milestone is a reviewable candidate exporter, not automatic promotion.
+## Live ACE interface (NOT_RUN)
 
-ACE compatibility is based on its inspected upstream source interface, not on a successful live model experiment. Do not claim a passing live run until independently observed.
+The caller must also supply:
+1. A clean checkout of the pinned ACE SHA, in an isolated Python environment with official dependencies installed.
+2. A separate, valid `ACE_RUN_GRANT` Ed25519 signed receipt for the exact `job` payload assembled in `run_ace_offline`. No signer is bundled.
+3. Explicit `--execute` and `PDRW_EXPERIENCE_ALLOW_MODEL_CALLS=YES`.
+4. Host-enforced credentials/allowlist and **provider-side budget/spending caps**. The worker's `--max-model-calls` guards only upstream `timed_llm_call` entrypoints, not retries buried inside the provider SDK; the subprocess `--max-wall-seconds` kills overlong jobs but cannot retroactively undo charges.
+5. An output directory outside the GitHub checkouts with restricted permissions.
+
+~~~bash
+pdrw-exp ace-run /private/approved_cases.jsonl --as-of 2026-11-21 --ace-root /isolated/ace --provider openai --model YOUR_APPROVED_MODEL --save-dir /private/ace-outputs --receipts /trusted/target-receipts.json --trusted-public-key /trusted/reviewer.pub.pem --source-root /trusted/sources --source-index /trusted/source-index.json --execution-grant /trusted/run-grant.json --max-model-calls 10 --max-wall-seconds 120 --execute
+~~~
+
+The supervised task trains ACE to answer annotated factual questions; it **does not yet prove** transferable scientific experience distillation. Raw ACE playbook must remain CANDIDATE until it is converted into sourced Lessons and independently reviewed.
+
+LangMem remains optional; ExpeL and ReasoningBank are methodological comparison choices. No model fine-tuning is required by this repo.

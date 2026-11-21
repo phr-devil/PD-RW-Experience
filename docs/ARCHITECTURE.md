@@ -1,35 +1,25 @@
-# Architecture and authority
+# Architecture — fail-closed evidence-grounded experience
 
-## Owned components
+1. **Case Adapter:** accepts host-prepared structured records and source pointers. PDF parsing and CASE_LIBRARY integration are not yet implemented.
+2. **ACE Bridge:** data preflight creates only objectively annotated `NORMALIZED_FACT` tasks. The official ACE Generator/Reflector/Curator handles the learning loop; this repo does not replicate it.
+3. **Source & Review Trust:** optional declared lineage inspection versus mandatory detached Ed25519 receipt + original source-byte SHA-256 verification for export and real model calls. Signature is **not** scientific verification.
+4. **Experience Library:** stateless JSON/JSONL read-only lesson retrieval, bounded search, case visibility and signed evidence matching. Not a second original CASE_LIBRARY.
+5. **Orchestrator contract:** Guidance v1 `level=experience` P4 only. Decision, experimental authorization and PD-RW hard rules remain elsewhere.
+6. **Feedback:** unverified receipt only; no automatic confidence inflation, source modification or rule promotion.
 
-1. Case Adapter: structured records from source-referenced paper/project evidence; v0.1 requires JSON/JSONL already prepared by an approved document/CASE_LIBRARY reader.
-2. ACE Bridge: strict offline supervised-data preflight, pinned external ACE checkout, opt-in run. ACE implements Generator, Reflector and Curator; this repo does not copy that code.
-3. Evidence Review: deterministic references/dates/classification/condition checks, **not** scientific fact verification.
-4. Experience Library: structured Lesson records, conflict states and search; v0.1 provides stateless file-based read-only retrieval, not an independent CASE_LIBRARY.
-5. Interfaces: Python library and CLI, output compatible with Orchestrator Guidance v1, level=experience only.
+## Defense in depth
 
-## Authorities and lineage
+- **Identity and authority:** original PD-RW/author records, host-granted filesystem/network permissions, trusted reviewer public key outside the inputs.
+- **Evidence:** hash actual files under an explicit trusted root; a declared review is insufficient.
+- **Learning:** protect TRAIN/VAL/TEST by case group and exact source digest, block TEST from adaptation, require `as_of` for source and review availability. Near-duplicate semantic case leakage still requires a separate audit.
+- **Paid calls:** dual opt-in + signed run grant + pinned clean ACE commit; ACE in a killable subprocess with wall time and counted `timed_llm_call` invocations. This does not enforce provider retries, actual dollars or a full network sandbox; the trusted host must enforce those.
+- **Evaluation:** objective fact labels are normalized and may list preapproved variants; a freeform scientific strategy or novelty statement is NOT automatically graded.
+- **Advice:** signed, source-byte-matched REVIEWED cases can supply P4 guidance, but `scientific_validity_verified=false` remains true even after receipt verification.
 
-- PD-RW is the authoritative policy/H decisions and authorization provenance.
-- Research project files and original Runs are authoritative factual observations, subject to real validation.
-- PD-RW-Agent 1.0 RC (pinned review commit 9177b6eb822aaa0d1482ef40f54369a8612c42dd) has existing science/context operations. This project does not re-implement or assert that it verifies scientific truth.
-- Experience is P4 advisory only. Its reviewed status means only a **declared** review artifact, not cryptographically authenticated approval. No automatic new permissions, science verdict, rule promotion or STOP.
-- Orchestrator consumes Guidance schema with id, level, source, text, task_types, evidence_refs, conditions. It retains decision and execution control.
+## Scientific policy source
 
-## Defensive data flow
+PD-RW-Agent rc/v1.0-integration at inspected commit `9177b6eb822aaa0d1482ef40f54369a8612c42dd`. The reader should treat this as reference lineage, not evidence of a locally installed version. Do not duplicate the science ledger.
 
-Structured input → case-check → ACE preflight (train/val only) → explicitly consented ACE external learning → raw ACE playbook stays CANDIDATE → human/independent evidence review → structured lesson-review → P4 retrieval → feedback-check (no auto-update).
+## Current engineering scope
 
-Source hashes are declared pointers checked for equality. Without original bytes or read-only PD-RW-Agent evidence service, this cannot attest hashes against disk. Stored references never imply an original file was independently accessed.
-
-## Privacy and leakage
-
-- Repository is PUBLIC; use synthetic examples only. Private cases and SEALED must stay outside this repo.
-- Private classification or private source visibility blocks ACE; TEST split is excluded from ACE data preparation and all retrieval.
-- Retrievable lessons must be REVIEWED-declared with review_ref, source-matched, PUBLIC, originating from TRAIN and visible by as_of. Missing cases/conflicts cause exclusion.
-- The external ACE implementation may call third-party APIs and write detailed logs; provide only explicitly approved public metadata, pin code and enforce budgets outside.
-- Never rely on a model to self-certify scientific novelty, citation validity or Run integrity.
-
-## Roadmap and limitations
-
-The current MVP does not parse PDFs, attest original source bytes, authenticate review signoff or run a live model. Full integration with PD-RW-Agent is intentionally pending adapter/permission testing. For blinded research evaluation, freeze the lesson index and as-of cutoff before TEST is observed.
+Unit/CLI tests are synthetic. Real source access, independent scientific adjudication, a production identity-aware key store, live ACE run and Orchestrator real handoff remain pending verification.

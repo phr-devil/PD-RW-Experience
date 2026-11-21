@@ -1,44 +1,23 @@
-# Orchestrator bridge — Guidance v1 / P4 only
+# PD-RW-Orchestrator Guidance v1 consumer contract
 
-Source consumer: https://github.com/phr-devil/PD-RW-Orchestrator/blob/main/schemas/guidance.schema.json
+PD-RW-Experience exports **only** `level=experience` P4 advisory fields compatible with `https://github.com/phr-devil/PD-RW-Orchestrator/blob/main/schemas/guidance.schema.json`:
 
-## Scope
+`id`, `level`, `source`, `text`, `task_types`, `evidence_refs`, `conditions`.
 
-This repository supplies structured experience guidance only. A P4 experience suggestion is not evidence of scientific truth, a permission grant, a new rule, or a next-stage command.
+Orchestrator does not gain permission, scientific fact or a binding policy by consuming these fields. Its Experience adapter currently validates provider messages only; a real live integration has not been verified.
 
-Supported read-only request is the equivalent of:
+## Read-only request
 
-- task_type: experimental_design or another Orchestrator task type (literal string; e.g. experiment_design)
-- query: research context keywords / short scientific problem statement
-- as_of: ISO date for time-visible cases and lessons
-- limit: maximum number of suggestions
-- case catalog + lesson catalog: immutable, locally authorized JSON/JSONL inputs (no hidden filesystem scan)
+Provide host-authenticated reviewer trust key, signed receipt catalog and source index in addition to lesson/case material:
 
-Command:
+~~~bash
+pdrw-exp retrieve /private/lessons.json --cases /private/cases.json --task-type experiment_design --query leakage --as-of 2026-11-21 --limit 3 --receipts /trusted/lesson-receipts.json --trusted-public-key /trusted/reviewer.pub.pem --source-root /trusted/sources --source-index /trusted/source-index.json
+~~~
 
-    pdrw-exp retrieve examples/lesson.synthetic.json --cases examples/case.synthetic.json --task-type experiment_design --query leakage --as-of 2026-04-01 --limit 3
+Only currently visible, public, nonconflicting, signed, source-byte-matched, TRAIN-derived Lessons are exportable. The signature and byte check do not prove scientific correctness. The `conditions` field is a task-side applicability hypothesis, not a verified match.
 
-Response shape is an array of Guidance v1 objects:
-- id: lesson id and version
-- level: always experience
-- source: PD-RW-Experience declared review pointer (not authenticated by this adapter)
-- text: lesson claim
-- task_types: registered scopes
-- evidence_refs: case/source pointers
-- conditions: when the lesson may apply
+## Feedback
 
-Unknown, future-dated, conflicting, private, non-TRAIN or unresolved references are suppressed. Only declared REVIEWED lessons can be returned and their declared review is **not** independently authenticated; downstream consumers must keep them P4, and may run additional PD-RW-Agent checks.
+`pdrw-exp feedback-check /private/feedback.json` returns `RECEIVED_UNVERIFIED`. It never mutates the Playbook or upgrades a rule.
 
-## Feedback direction
-
-    pdrw-exp feedback-check /private/feedback.json
-
-Feedback is received as UNVERIFIED with no automatic mutation. Future integration can validate it against source Run hashes, attach original authorization evidence and then propose a new lesson version. Experience must never auto-modify PD-RW.
-
-## Source compatibility
-
-- Current Orchestrator schema is version 1.0, relative to main as inspected on 2026-11-21.
-- Current PD-RW-Agent reference is RC v1.0.0rc1 commit 9177b6eb822aaa0d1482ef40f54369a8612c42dd.
-- Schema changes should be checked against both repositories, but this repo does not write to them.
-
-This bridge does not run ARC, AIDE, R&D-Agent, or WorkBuddy and has no authority to launch experiments.
+Do not allow an untrusted Agent to select or replace the trusted reviewer key or the root of original evidence. The trusted host owns identity and all side effects. No cross-repository code changes are part of this contract.

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Detached Ed25519 Review Receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "payload",
+    "signature"
+  ],
+  "properties": {
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "subject_sha256",
+        "reviewed_at",
+        "decision"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0"
+        },
+        "kind": {
+          "enum": [
+            "LESSON_REVIEW",
+            "TARGET_REVIEW",
+            "ACE_RUN_GRANT"
+          ]
+        },
+        "subject_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "decision": {
+          "const": "APPROVED_FOR_ADVISORY"
+        }
+      }
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 80
+    }
+  }
+}

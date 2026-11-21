@@ -1,33 +1,25 @@
-# Development roadmap — verify capabilities before expanding
+# Evidence-first development roadmap
 
-## M0: repo foundation (this increment)
+## M0.1.1 — P0 scientific/operational safeguards (code and synthetic CI)
 
-- Structured Case/Lesson/Feedback schemas and CLI.
-- SOURCE MATCH and time-as-of checks, classification, TRAIN/VAL/TEST isolation.
-- ACE preflight and explicit optional bridge; no API calls during normal operation.
-- Synthetic tests and GitHub CI, public-data hygiene.
-- Deliver status as ENGINEERING_ONLY, not science validated.
+- [x] Deterministic, explicitly typed normalized fact labels; no unreviewed free-form scientific grader.
+- [x] Detached signed Lesson review and actual original source hashing before P4 export.
+- [x] Split isolation (case group, exact source digest, duplicate IDs, TEST blocked), as-of source and target reviews.
+- [x] ACE external subprocess boundary, declared model-call and wall-time limits, clean pinned upstream, signed run-grant and explicit dual opt-in.
+- [x] Synthetic signature tampering, source modification, split leakage, model-call cap and CLI regression tests.
+- [ ] Real ACE paid experiment: NOT_RUN; provider-side spend and network controls are external requirements.
+- [ ] Production reviewer identity, source connector and science review: NOT_IMPLEMENTED.
 
-## M1: read-only source bridge
+## M1 — real read-only source bridge
 
-- Connect through pinned PD-RW-Agent RC CLI/MCP for official CASE_LIBRARY records; no second original-data database.
-- Verify source bytes/hash where permitted, scope review signatures, and fail closed when unavailable.
-- Add PDF/paper adapter using approved parser; capture DOI, title, claim/limitations, citation spans, copyright constraints.
+Use PD-RW-Agent rc/v1.0-integration to retrieve CASE_LIBRARY and source/Run provenance. No second original data store. Explicit authorization and a host-pinned reviewer trust key required. Add a PDF/paper adapter through mature parsers, preserving DOI, source spans, licensing and author-vs-evidence distinctions.
 
-## M2: candidate learning
+## M2 — actual experience distillation
 
-- ACE run on independently annotated public benchmark samples.
-- Parse raw ACE outputs into candidate lessons with citation support; conflicts, generality, and provenance reviewed by independent human/authorized host.
-- Compare with ExpeL/ReasoningBank methods if ACE cannot meet benchmarks; LangMem only if needed.
-- No blanket generalization from one failed project.
+Run ACE on approved, independently labeled cases. Convert raw playbook bullets into source-cited CANDIDATE Lessons and independently review mechanisms, scope and counterexamples. Compare ExpeL/ReasoningBank where helpful. Keep an objective extraction evaluation separate from transfer-quality assessment.
 
-## M3: integration and effectiveness
+## M3 — real integration and scientific gain
 
-- Versioned Experience Query/Feedback contract with PD-RW-Orchestrator.
-- Evaluate frozen baseline vs raw-case retrieval vs distilled lessons at matched model/time/compute budget.
-- Report valid findings, false positives, overgeneralization, token cost, failure rate; negative findings stay visible.
-- Never promote to PD-RW rules automatically.
+Orchestrator requests signed P4 guidance and sends separately verified feedback. Paired frozen tests compare BASELINE / case RAG / ACE lessons at comparable model, compute and Token budget. Report false transfer, real scientific errors, evidence quality and cost. No auto-PD-RW rule promotion.
 
-## Acceptance evidence
-
-M0: install, tests pass, examples operate with zero model calls. M1–M3 remain NOT_RUN until independently measured. The success metric is improved correct scientific decisions per total cost, not number of lessons.
+All performance improvements are NOT_MEASURED until real evaluation. Synthetic CI is not scientific validation.
