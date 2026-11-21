@@ -38,9 +38,40 @@
           "format": "date"
         },
         "decision": {
-          "const": "APPROVED_FOR_ADVISORY"
+          "enum": [
+            "APPROVED_FOR_ADVISORY",
+            "APPROVED_FOR_EXECUTION"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "ACE_RUN_GRANT"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "decision": {
+                "const": "APPROVED_FOR_EXECUTION"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "decision": {
+                "const": "APPROVED_FOR_ADVISORY"
+              }
+            }
+          }
+        }
+      ]
     },
     "signature": {
       "type": "string",

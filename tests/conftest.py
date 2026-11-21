@@ -15,7 +15,8 @@ def sign(private_key, subject, kind, reviewed_at):
     payload = {
         "schema_version": "1.0", "kind": kind,
         "subject_sha256": digest(subject), "reviewed_at": reviewed_at,
-        "decision": "APPROVED_FOR_ADVISORY",
+        "decision": ("APPROVED_FOR_EXECUTION" if kind == "ACE_RUN_GRANT"
+                     else "APPROVED_FOR_ADVISORY"),
     }
     return {"payload": payload, "signature":
             base64.b64encode(private_key.sign(canonical_bytes(payload))).decode("ascii")}

@@ -27,7 +27,7 @@ Signed bytes are UTF-8 JSON produced with `json.dumps(payload, sort_keys=True, e
 Supported kinds:
 - `LESSON_REVIEW`: subject = entire Lesson JSON record.
 - `TARGET_REVIEW`: subject = `{"case_id": id, "case_sha256": digest(case), "reviewed_target": target}`.
-- `ACE_RUN_GRANT`: subject = the precise model/provider/ACE revision/data digests/call and time budget in `ace_bridge.py`.
+- `ACE_RUN_GRANT`: subject = the precise model/provider/ACE revision/data digests/call and time budget in `ace_bridge.py`. Its separately signed decision **must** be `APPROVED_FOR_EXECUTION`, never `APPROVED_FOR_ADVISORY`.
 
 Sign each `payload` with the authorized review/grant private key **outside this repository and outside untrusted Agent processes**. No private signer is shipped here. Approving a source/lesson and authorizing a paid model run are conceptually distinct operations; production hosts may require separate signing roles even where the MVP accepts one trusted public key.
 

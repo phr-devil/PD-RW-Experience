@@ -137,3 +137,15 @@ def test_ace_needs_signed_spend_grant(bundle, monkeypatch):
         run_ace_offline(bundle["cases"], ace_root="/missing", provider="openai",
                         model="dummy", save_dir="/tmp", as_of=bundle["as_of"],
                         execution_grant=None, execute=True, **trust(bundle))
+
+
+def test_ace_input_size_is_bounded(bundle):
+    cases = copy.deepcopy(bundle["cases"])
+    cases[0]["method"] = "z" * 13000
+    result = prepare_ace_samples(cases, as_of=bundle["as_of"])
+    assert "ACE_INPUT_SIZE_CAP_EXCEEDED" in str(result["blocked"])
+
+
+def test_ace_batch_size_cap(bundle):
+    with pytest.raises(RecordError, match="ACE_BATCH_SIZE_CAP_EXCEEDED"):
+        prepare_ace_samples(bundle["cases"] * 17, as_of=bundle["as_of"])

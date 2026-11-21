@@ -12,7 +12,7 @@
 - **Identity and authority:** original PD-RW/author records, host-granted filesystem/network permissions, trusted reviewer public key outside the inputs.
 - **Evidence:** hash actual files under an explicit trusted root; a declared review is insufficient.
 - **Learning:** protect TRAIN/VAL/TEST by case group and exact source digest, block TEST from adaptation, require `as_of` for source and review availability. Near-duplicate semantic case leakage still requires a separate audit.
-- **Paid calls:** dual opt-in + signed run grant + pinned clean ACE commit; ACE in a killable subprocess with wall time and counted `timed_llm_call` invocations. This does not enforce provider retries, actual dollars or a full network sandbox; the trusted host must enforce those.
+- **Paid calls:** dual opt-in + a separate `APPROVED_FOR_EXECUTION` signed run grant + pinned clean ACE commit; ACE in a killable subprocess with wall time and counted `timed_llm_call` invocations. This does not enforce provider retries, actual dollars or a full network sandbox; the trusted host must enforce those.
 - **Evaluation:** objective fact labels are normalized and may list preapproved variants; a freeform scientific strategy or novelty statement is NOT automatically graded.
 - **Advice:** signed, source-byte-matched REVIEWED cases can supply P4 guidance, but `scientific_validity_verified=false` remains true even after receipt verification.
 

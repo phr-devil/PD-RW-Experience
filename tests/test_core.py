@@ -135,3 +135,40 @@ def test_feedback_stays_unverified():
     result = validate_feedback(feedback)
     assert result["status"] == "RECEIVED_UNVERIFIED"
     assert result["automatic_lesson_update"] is False
+
+
+def test_signed_review_rejected_if_receipt_is_future(bundle):
+    from conftest import sign
+    receipt = sign(bundle["private_key"], bundle["lesson"],
+                   "LESSON_REVIEW", "2026-05-01")
+    result = review_lesson(bundle["lesson"], bundle["cases"],
+                           **{**trust(bundle), "receipt": receipt})
+    assert result["status"] == "BLOCKED"
+    assert "REVIEW_NOT_YET_VISIBLE" in result["reasons"][0]
+
+
+def test_invalid_base64_receipt_fails_closed(bundle):
+    receipt = copy.deepcopy(bundle["lesson_receipts"]["SYN-L001"])
+    receipt["signature"] = "invalid%%%base64"
+    result = review_lesson(bundle["lesson"], bundle["cases"],
+                           **{**trust(bundle), "receipt": receipt})
+    assert result["status"] == "BLOCKED"
+    assert "REVIEW_SIGNATURE_INVALID" in result["reasons"][0]
+
+
+def test_grant_requires_execution_decision(bundle):
+    from conftest import sign
+    from pdrw_experience.trust import verify_receipt
+    from datetime import date
+    job = {"model": "fake", "max_model_calls": 3}
+    receipt = sign(bundle["private_key"], job,
+                   "ACE_RUN_GRANT", date.today().isoformat())
+    assert verify_receipt(job, receipt, kind="ACE_RUN_GRANT",
+                          trusted_public_key=bundle["public_key"],
+                          as_of=date.today().isoformat())["review_authorization_verified"]
+    incorrect = sign(bundle["private_key"], job,
+                     "LESSON_REVIEW", date.today().isoformat())
+    with pytest.raises(RecordError):
+        verify_receipt(job, incorrect, kind="ACE_RUN_GRANT",
+                       trusted_public_key=bundle["public_key"],
+                       as_of=date.today().isoformat())
