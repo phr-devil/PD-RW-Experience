@@ -6,6 +6,7 @@ untrusted lesson or case files. Signers are external; no signing key lives here.
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import json
 from pathlib import Path
@@ -36,8 +37,10 @@ def verify_receipt(subject: dict, receipt: dict, *, kind: str,
         "schema_version", "kind", "subject_sha256", "reviewed_at", "decision"
     }:
         raise RecordError("REVIEW_PAYLOAD_INVALID")
+    expected_decision = ("APPROVED_FOR_EXECUTION" if kind == "ACE_RUN_GRANT"
+                         else "APPROVED_FOR_ADVISORY")
     if (payload["schema_version"] != "1.0" or payload["kind"] != kind
-            or payload["decision"] != "APPROVED_FOR_ADVISORY"
+            or payload["decision"] != expected_decision
             or payload["subject_sha256"] != digest(subject)):
         raise RecordError("REVIEW_PAYLOAD_MISMATCH")
     reviewed_at = _date(payload["reviewed_at"], "reviewed_at")
@@ -51,7 +54,7 @@ def verify_receipt(subject: dict, receipt: dict, *, kind: str,
             raise ValueError("wrong key algorithm")
         signature = base64.b64decode(receipt["signature"], validate=True)
         key.verify(signature, canonical_bytes(payload))
-    except (InvalidSignature, ValueError, TypeError) as exc:
+    except (InvalidSignature, ValueError, TypeError, binascii.Error) as exc:
         raise RecordError("REVIEW_SIGNATURE_INVALID") from exc
     return {"reviewed_at": reviewed_at, "subject_sha256": digest(subject),
             "review_authorization_verified": True,
