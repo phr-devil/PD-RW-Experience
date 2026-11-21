@@ -16,17 +16,56 @@ from .core import RecordError, validate_case
 ACE_BASELINE_COMMIT = "82709de050e1db6e6ef2f07bcb0393560b94992a"
 
 
-def prepare_ace_samples(cases: list[dict]) -> dict:
-    """Create ACE-compatible offline task records; no model call or disk write."""
-    result = {"train": [], "val": [], "blocked": [], "engine": "ACE", "model_calls": 0}
-    groups = {"TRAIN": set(), "VAL": set()}
+def _normalize_answer(text: str) -> str:
+    """Only normalization, not an LLM judgment of scientific equivalence."""
+    import unicodedata
+    return " ".join(unicodedata.normalize("NFKC", text).casefold().split())
+
+
+def prepare_ace_samples(
+    cases: list[dict], *, as_of: str,
+    target_receipts: dict | None = None,
+    trusted_public_key: bytes | None = None,
+) -> dict:
+    """ACE data preparation: future- and group-isolated, fact labels only."""
+    import json
+    from .core import _date
+    from .trust import digest, verify_receipt
+
+    _date(as_of, "as_of")
+    if (target_receipts is None) != (trusted_public_key is None):
+        raise RecordError("TARGET_TRUST_CONFIG_INCOMPLETE")
+    result = {"train": [], "val": [], "blocked": [],
+              "engine": "ACE", "model_calls": 0,
+              "review_attested": target_receipts is not None}
+    seen_ids = set()
+    groups = {}
+    source_hashes = {}
     for case in cases:
         validate_case(case)
         cid = case["case_id"]
-        if case["split"] == "TEST":
-            continue  # sealed evaluation cases must never enter ACE adaptation
+        if cid in seen_ids:
+            raise RecordError("DUPLICATE_CASE_ID")
+        seen_ids.add(cid)
+        split = case["split"]
+        group = case["case_group"].strip().casefold()
+        if group in groups and groups[group] != split:
+            raise RecordError(f"CASE_GROUP_LEAKAGE:{group}:{groups[group]}:{split}")
+        groups[group] = split
+        for source in case["source_refs"]:
+            sha = source["sha256"].lower()
+            if sha in source_hashes and source_hashes[sha] != split:
+                raise RecordError(f"SOURCE_BYTES_LEAKAGE:{sha}")
+            source_hashes[sha] = split
+        if split == "TEST":
+            result["blocked"].append({"case_id": cid, "reason": "TEST_IN_ADAPTATION_INPUT"})
+            continue
+        if (case["available_at"] > as_of or
+                any(source["available_at"] > as_of for source in case["source_refs"])):
+            result["blocked"].append({"case_id": cid, "reason": "FUTURE_SOURCE_OR_CASE"})
+            continue
         if case["classification"] != "PUBLIC" or any(
-            s["visibility"] != "PUBLIC" for s in case["source_refs"]
+            src["visibility"] != "PUBLIC" for src in case["source_refs"]
         ):
             result["blocked"].append({"case_id": cid, "reason": "NONPUBLIC_SOURCE"})
             continue
@@ -34,39 +73,63 @@ def prepare_ace_samples(cases: list[dict]) -> dict:
         if target is None:
             result["blocked"].append({"case_id": cid, "reason": "NO_INDEPENDENT_REFERENCE_TARGET"})
             continue
-        groups[case["split"]].add(case["case_group"])
-        result["train" if case["split"] == "TRAIN" else "val"].append({
+        if target["reviewed_at"] > as_of:
+            result["blocked"].append({"case_id": cid, "reason": "FUTURE_TARGET_REVIEW"})
+            continue
+        if target_receipts is not None:
+            subject = {"case_id": cid, "case_sha256": digest(case),
+                       "reviewed_target": target}
+            try:
+                verify_receipt(subject, target_receipts.get(cid),
+                               kind="TARGET_REVIEW", trusted_public_key=trusted_public_key,
+                               as_of=as_of)
+            except (RecordError, TypeError) as exc:
+                result["blocked"].append({"case_id": cid, "reason": f"TARGET_REVIEW_UNATTESTED:{exc}"})
+                continue
+        answer = json.dumps({"evaluation_type": "NORMALIZED_FACT",
+                             "answer": target["answer"],
+                             "accepted_answers": target.get("accepted_answers", [])},
+                            ensure_ascii=False, sort_keys=True)
+        result["train" if split == "TRAIN" else "val"].append({
             "context": (f"Case {cid}; type {case['case_type']}; research question: "
                         f"{case['research_question']}; method: {case['method']}; "
                         f"observed outcome: {case['observed_outcome']}; "
                         f"limitations: {'; '.join(case['limitations'])}. "
-                        "This is a described case, not proof of causal generality."),
+                        "Answer the reviewed factual extraction question, not general scientific merit."),
             "question": target["question"],
-            "target": target["answer"],
+            "target": answer,
             "review_ref": target["review_ref"],
             "case_id": cid,
         })
-    overlap = groups["TRAIN"] & groups["VAL"]
-    if overlap:
-        raise RecordError(f"TRAIN/VAL case_group leakage: {sorted(overlap)}")
-    result["status"] = (
-        "READY_FOR_EXPLICIT_ACE_RUN"
-        if result["train"] and result["val"] and not result["blocked"]
-        else "BLOCKED"
-    )
+    if result["blocked"] or not result["train"] or not result["val"]:
+        result["status"] = "BLOCKED"
+    elif target_receipts is None:
+        result["status"] = "READY_FOR_LOCAL_DRY_RUN_ONLY"
+    else:
+        result["status"] = "READY_FOR_EXPLICIT_ACE_RUN"
     return result
 
 
 class ScientificDataProcessor:
-    """ACE-compatible exact-reference baseline, not a scientific judge."""
+    """Only objectively annotated factual answers; not general science grading."""
 
     def process_task_data(self, rows):
         return rows
 
     def answer_is_correct(self, predicted, ground_truth):
-        return isinstance(predicted, str) and isinstance(ground_truth, str) and (
-            predicted.strip() == ground_truth.strip()
-        )
+        import json
+        if not isinstance(predicted, str) or not isinstance(ground_truth, str):
+            return False
+        try:
+            ref = json.loads(ground_truth)
+        except (ValueError, TypeError):
+            return False
+        if not isinstance(ref, dict) or ref.get("evaluation_type") != "NORMALIZED_FACT":
+            return False
+        answers = [ref.get("answer"), *ref.get("accepted_answers", [])]
+        return _normalize_answer(predicted) in {
+            _normalize_answer(s) for s in answers if isinstance(s, str) and s.strip()
+        }
 
     def evaluate_accuracy(self, predictions, ground_truths):
         if len(predictions) != len(ground_truths):
