@@ -1,93 +1,137 @@
 import copy
 import json
 from pathlib import Path
-
 import pytest
-
 from pdrw_experience.core import (
     RecordError, load_records, retrieve_guidance, review_lesson,
-    validate_case, validate_feedback, validate_lesson
-)
+    validate_case, validate_feedback, validate_lesson)
 
-ROOT = Path(__file__).parents[1] / "examples"
+EXAMPLES = Path(__file__).parents[1] / "examples"
 
 
 def fixtures():
-    return load_records(ROOT / "case.synthetic.json")[0], load_records(ROOT / "lesson.synthetic.json")[0]
+    return (load_records(EXAMPLES / "case.synthetic.json")[0],
+            load_records(EXAMPLES / "lesson.synthetic.json")[0])
 
 
-def test_case_and_lesson_shapes():
+def trust(bundle):
+    return dict(receipt=bundle["lesson_receipts"][bundle["lesson"]["lesson_id"]],
+                trusted_public_key=bundle["public_key"],
+                source_root=bundle["root"], source_index=bundle["source_index"],
+                as_of=bundle["as_of"])
+
+
+def guidance_trust(bundle):
+    return dict(receipts=bundle["lesson_receipts"],
+                trusted_public_key=bundle["public_key"],
+                source_root=bundle["root"], source_index=bundle["source_index"])
+
+
+def test_shapes():
     case, lesson = fixtures()
     assert validate_case(case)["case_id"] == "SYN-001"
     assert validate_lesson(lesson)["lesson_id"] == "SYN-L001"
 
 
-def test_lineage_declared_not_scientifically_verified():
+def test_declared_match_is_not_authenticated():
     case, lesson = fixtures()
-    result = review_lesson(lesson, [case])
-    assert result["status"] == "DECLARED_LINEAGE_MATCHED_ONLY"
-    assert result["scientific_validity_verified"] is False
+    data = review_lesson(lesson, [case])
+    assert data["status"] == "DECLARED_LINEAGE_MATCHED_ONLY"
+    assert not data["review_authorization_verified"]
+    assert not data["scientific_validity_verified"]
 
 
-def test_reference_mismatch_blocks():
-    case, lesson = fixtures()
-    lesson["case_refs"][0]["sha256"] = "f" * 64
-    result = review_lesson(lesson, [case])
+def test_signed_review_and_original_bytes(bundle):
+    data = review_lesson(bundle["lesson"], bundle["cases"], **trust(bundle))
+    assert data["status"] == "ATTESTED_SOURCE_MATCHED_FOR_ADVISORY"
+    assert data["source_bytes_verified"] and data["review_authorization_verified"]
+    assert not data["scientific_validity_verified"]
+
+
+def test_untrusted_review_cannot_export(bundle):
+    with pytest.raises(RecordError, match="TRUSTED_REVIEW"):
+        retrieve_guidance([bundle["lesson"]], bundle["cases"],
+                          task_type="experiment_design", query="leakage",
+                          as_of=bundle["as_of"])
+
+
+def test_p4_advisory_only_with_review(bundle):
+    result = retrieve_guidance(
+        [bundle["lesson"]], bundle["cases"], task_type="experiment_design",
+        query="leakage", as_of=bundle["as_of"], **guidance_trust(bundle))
+    assert len(result) == 1
+    assert result[0]["level"] == "experience"
+    assert result[0]["source"].startswith("PD-RW-Experience:")
+    assert result[0]["evidence_refs"] == ["SYN-001#synthetic:run:001"]
+    assert result[0]["conditions"]
+
+
+def test_future_or_test_blocked(bundle):
+    kw = guidance_trust(bundle)
+    assert not retrieve_guidance([bundle["lesson"]], bundle["cases"],
+                                 task_type="experiment_design", query="leakage",
+                                 as_of="2026-01-01", **kw)
+    mutated = copy.deepcopy(bundle["cases"])
+    mutated[0]["split"] = "TEST"
+    assert not retrieve_guidance([bundle["lesson"]], mutated,
+                                 task_type="experiment_design", query="leakage",
+                                 as_of=bundle["as_of"], **kw)
+
+
+def test_source_bytes_modified_after_review(bundle):
+    first = Path(bundle["root"]) / bundle["source_index"]["SYN-001"]["synthetic:run:001"]
+    first.write_text("Tampered!", encoding="utf-8")
+    result = review_lesson(bundle["lesson"], bundle["cases"], **trust(bundle))
     assert result["status"] == "BLOCKED"
-    assert "SOURCE_UNMATCHED" in result["reasons"][0]
+    assert "SOURCE_BYTES_HASH_MISMATCH" in result["reasons"][0]
 
 
-def test_future_case_blocks():
-    case, lesson = fixtures()
-    lesson["available_at"] = "2025-01-01"
-    assert "FUTURE_CASE:SYN-001" in review_lesson(lesson, [case])["reasons"]
+def test_forged_signature_blocked(bundle):
+    receipt = copy.deepcopy(bundle["lesson_receipts"]["SYN-L001"])
+    receipt["signature"] = "AA=="
+    result = review_lesson(bundle["lesson"], bundle["cases"],
+                           **{**trust(bundle), "receipt": receipt})
+    assert result["status"] == "BLOCKED"
 
 
-def test_private_case_cannot_publish_public_lesson():
-    case, lesson = fixtures()
-    case["classification"] = "PRIVATE"
-    assert "PRIVATE_TO_PUBLIC:SYN-001" in review_lesson(lesson, [case])["reasons"]
+def test_cross_case_reference_mismatch_blocked(bundle):
+    lesson = copy.deepcopy(bundle["lesson"])
+    lesson["case_refs"][0]["sha256"] = "f" * 64
+    assert review_lesson(lesson, bundle["cases"], **trust(bundle))["status"] == "BLOCKED"
 
 
-def test_p4_guidance_fields_and_as_of():
-    case, lesson = fixtures()
-    found = retrieve_guidance([lesson], [case], task_type="experiment_design",
-                              query="leakage", as_of="2026-04-01")
-    assert len(found) == 1
-    assert found[0]["level"] == "experience"
-    assert found[0]["source"].startswith("PD-RW-Experience:")
-    assert found[0]["evidence_refs"] == ["SYN-001#synthetic:run:001"]
-    assert not retrieve_guidance([lesson], [case], task_type="experiment_design",
-                                 query="leakage", as_of="2026-01-01")
-
-
-def test_test_case_cannot_be_retrieved():
-    case, lesson = fixtures()
-    case["split"] = "TEST"
-    assert retrieve_guidance([lesson], [case], task_type="experiment_design",
-                             query="leakage", as_of="2026-04-01") == []
-
-
-def test_candidate_or_conflict_not_retrieved():
-    case, lesson = fixtures()
+def test_conflict_and_candidate_not_retrievable(bundle):
+    lesson = copy.deepcopy(bundle["lesson"])
     lesson["status"] = "CANDIDATE"
-    assert retrieve_guidance([lesson], [case], task_type="experiment_design",
-                             query="", as_of="2026-04-01") == []
-    lesson["status"] = "REVIEWED"
+    assert not retrieve_guidance([lesson], bundle["cases"],
+                                 task_type="experiment_design", query="",
+                                 as_of=bundle["as_of"], **guidance_trust(bundle))
+    lesson = copy.deepcopy(bundle["lesson"])
     lesson["conflicts_with"] = ["SYN-L002"]
-    assert retrieve_guidance([lesson], [case], task_type="experiment_design",
-                             query="", as_of="2026-04-01") == []
+    assert not retrieve_guidance([lesson], bundle["cases"],
+                                 task_type="experiment_design", query="",
+                                 as_of=bundle["as_of"], **guidance_trust(bundle))
 
 
-def test_invalid_hash_rejected():
+def test_private_source_and_path_escape_blocked(bundle, tmp_path):
+    from pdrw_experience.trust import verify_source_bytes
+    index = copy.deepcopy(bundle["source_index"])
+    index["SYN-001"]["synthetic:run:001"] = "../outside.txt"
+    (tmp_path.parent / "outside.txt").write_text("outside")
+    with pytest.raises(RecordError, match="SOURCE_OUTSIDE_TRUSTED_ROOT"):
+        verify_source_bytes(bundle["cases"], bundle["lesson"]["case_refs"],
+                            source_root=bundle["root"], source_index=index)
+
+
+def test_bad_digest_is_rejected():
     case, _ = fixtures()
-    case["source_refs"][0]["sha256"] = "not-a-sha"
+    case["source_refs"][0]["sha256"] = "invalid"
     with pytest.raises(RecordError):
         validate_case(case)
 
 
-def test_feedback_is_advisory_only():
-    feedback = load_records(ROOT / "feedback.synthetic.json")[0]
+def test_feedback_stays_unverified():
+    feedback = load_records(EXAMPLES / "feedback.synthetic.json")[0]
     result = validate_feedback(feedback)
     assert result["status"] == "RECEIVED_UNVERIFIED"
     assert result["automatic_lesson_update"] is False
