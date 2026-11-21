@@ -26,14 +26,16 @@ def prepare_ace_samples(
     cases: list[dict], *, as_of: str,
     target_receipts: dict | None = None,
     trusted_public_key: bytes | None = None,
+    source_root: str | None = None, source_index: dict | None = None,
 ) -> dict:
     """ACE data preparation: future- and group-isolated, fact labels only."""
     import json
     from .core import _date
-    from .trust import digest, verify_receipt
+    from .trust import digest, verify_receipt, verify_source_bytes
 
     _date(as_of, "as_of")
-    if (target_receipts is None) != (trusted_public_key is None):
+    trust_fields = (target_receipts, trusted_public_key, source_root, source_index)
+    if any(x is not None for x in trust_fields) and any(x is None for x in trust_fields):
         raise RecordError("TARGET_TRUST_CONFIG_INCOMPLETE")
     result = {"train": [], "val": [], "blocked": [],
               "engine": "ACE", "model_calls": 0,
@@ -83,7 +85,11 @@ def prepare_ace_samples(
                 verify_receipt(subject, target_receipts.get(cid),
                                kind="TARGET_REVIEW", trusted_public_key=trusted_public_key,
                                as_of=as_of)
-            except (RecordError, TypeError) as exc:
+                verify_source_bytes([case], [
+                    {"case_id": cid, "source_id": source["source_id"],
+                     "sha256": source["sha256"]} for source in case["source_refs"]
+                ], source_root=source_root, source_index=source_index)
+            except (RecordError, TypeError, OSError) as exc:
                 result["blocked"].append({"case_id": cid, "reason": f"TARGET_REVIEW_UNATTESTED:{exc}"})
                 continue
         answer = json.dumps({"evaluation_type": "NORMALIZED_FACT",
@@ -139,49 +145,89 @@ class ScientificDataProcessor:
         return sum(self.answer_is_correct(p, t) for p, t in zip(predictions, ground_truths)) / len(predictions)
 
 
-def run_ace_offline(cases: list[dict], *, ace_root: str, provider: str,
-                    model: str, save_dir: str, execute: bool = False) -> dict:
-    prepared = prepare_ace_samples(cases)
+def run_ace_offline(
+    cases: list[dict], *, ace_root: str, provider: str, model: str,
+    save_dir: str, as_of: str, target_receipts: dict | None,
+    trusted_public_key: bytes | None, source_root: str | None,
+    source_index: dict | None, execution_grant: dict | None,
+    max_model_calls: int = 10, max_wall_seconds: int = 120,
+    execute: bool = False,
+) -> dict:
+    """Run approved public ACE samples with a bounded worker, never in-process.
+
+    Provider-side dollar caps and egress policy remain an external requirement:
+    a call budget is not a dollar guarantee or a full security sandbox.
+    """
+    import json
+    import sys
+    from datetime import date
+    from .trust import verify_receipt, digest
+
+    prepared = prepare_ace_samples(
+        cases, as_of=as_of, target_receipts=target_receipts,
+        trusted_public_key=trusted_public_key,
+        source_root=source_root, source_index=source_index)
     if prepared["status"] != "READY_FOR_EXPLICIT_ACE_RUN":
-        raise RecordError("ACE task blocked: public reviewed TRAIN and VAL required, no blocked cases")
+        raise RecordError("ACE_DATA_NOT_INDEPENDENTLY_ATTESTED")
     if not execute or os.environ.get("PDRW_EXPERIENCE_ALLOW_MODEL_CALLS") != "YES":
         raise RecordError("ACE_DISABLED: requires --execute and PDRW_EXPERIENCE_ALLOW_MODEL_CALLS=YES")
-    if provider not in {"openai", "together", "sambanova", "commonstack"}:
-        raise RecordError("ACE provider unsupported by the pinned upstream interface")
-    if not model.strip():
-        raise RecordError("ACE model is required")
-    root = Path(ace_root).expanduser().resolve()
+    if type(max_model_calls) is not int or not 1 <= max_model_calls <= 30:
+        raise RecordError("ACE_MODEL_CALL_CAP_INVALID")
+    if type(max_wall_seconds) is not int or not 1 <= max_wall_seconds <= 300:
+        raise RecordError("ACE_WALL_SECONDS_CAP_INVALID")
+    if provider not in {"openai", "together", "sambanova", "commonstack"} or not model.strip():
+        raise RecordError("ACE_PROVIDER_OR_MODEL_UNSUPPORTED")
+    job = {
+        "as_of": as_of, "provider": provider, "model": model,
+        "max_model_calls": max_model_calls,
+        "max_wall_seconds": max_wall_seconds,
+        "ace_commit": ACE_BASELINE_COMMIT,
+        "case_hashes": sorted(digest(case) for case in cases),
+    }
+    if execution_grant is None or trusted_public_key is None:
+        raise RecordError("ACE_SIGNED_RUN_GRANT_REQUIRED")
+    verify_receipt(job, execution_grant, kind="ACE_RUN_GRANT",
+                   trusted_public_key=trusted_public_key,
+                   as_of=date.today().isoformat())
+    root = Path(ace_root).expanduser().resolve(strict=True)
     if not (root / "ace" / "__init__.py").is_file():
-        raise RecordError("ACE checkout root invalid")
+        raise RecordError("ACE_CHECKOUT_ROOT_INVALID")
     try:
         revision = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True,
-            text=True, check=True, timeout=5
-        ).stdout.strip()
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True, timeout=5).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+            capture_output=True, text=True, check=True, timeout=5).stdout.strip()
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        raise RecordError("ACE checkout commit cannot be attested") from exc
-    if revision != ACE_BASELINE_COMMIT:
-        raise RecordError(f"ACE commit mismatch: expected {ACE_BASELINE_COMMIT}")
-    ace_module = importlib.import_module("ace")
-    imported = Path(ace_module.__file__).resolve()
-    if root not in imported.parents:
-        raise RecordError("ACE import does not come from the pinned checkout")
-    engine = ace_module.ACE(
-        api_provider=provider, generator_model=model, reflector_model=model,
-        curator_model=model, max_tokens=2048, use_bulletpoint_analyzer=False,
-    )
-    config = {
-        "num_epochs": 1, "max_num_rounds": 1, "curator_frequency": 1,
-        "eval_steps": 10, "save_steps": 10, "playbook_token_budget": 4000,
-        "task_name": "pdrw_scientific_case_extraction", "json_mode": False,
-        "no_ground_truth": False, "save_dir": str(Path(save_dir).resolve()),
-        "test_workers": 1, "use_bulletpoint_analyzer": False,
-        "api_provider": provider,
+        raise RecordError("ACE_GIT_STATUS_NOT_ATTESTABLE") from exc
+    if revision != ACE_BASELINE_COMMIT or dirty:
+        raise RecordError("ACE_COMMIT_MISMATCH_OR_DIRTY_CHECKOUT")
+    destination = Path(save_dir).expanduser().resolve()
+    if destination.is_relative_to(root):
+        raise RecordError("ACE_RESULTS_CANNOT_LIVE_INSIDE_UPSTREAM_CHECKOUT")
+    destination.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "root": str(root), "provider": provider, "model": model,
+        "save_dir": str(destination), "train": prepared["train"],
+        "val": prepared["val"], "max_model_calls": max_model_calls,
     }
-    # External ACE may make multiple metered calls and write logs. Provider-level
-    # spending limits and private output directory are the host's responsibility.
-    return engine.run(
-        mode="offline", train_samples=prepared["train"],
-        val_samples=prepared["val"], test_samples=[],
-        data_processor=ScientificDataProcessor(), config=config,
-    )
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pdrw_experience._ace_worker"],
+            input=json.dumps(payload, ensure_ascii=False), text=True,
+            capture_output=True, timeout=max_wall_seconds, check=False,
+            cwd=str(root), env=os.environ.copy())
+    except subprocess.TimeoutExpired as exc:
+        raise RecordError("ACE_WORKER_WALL_TIMEOUT_KILLED") from exc
+    if proc.returncode:
+        raise RecordError(f"ACE_WORKER_FAILED_EXIT_{proc.returncode}")
+    marker = "PDRW_ACE_RESULT_JSON="
+    result_line = next((line[len(marker):] for line in reversed(proc.stdout.splitlines())
+                        if line.startswith(marker)), None)
+    if result_line is None:
+        raise RecordError("ACE_WORKER_NO_RESULT_RECEIPT")
+    result = json.loads(result_line)
+    if result.get("model_calls", max_model_calls + 1) > max_model_calls:
+        raise RecordError("ACE_CALL_BUDGET_EXCEEDED")
+    return result
