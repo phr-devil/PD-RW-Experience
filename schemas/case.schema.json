@@ -114,7 +114,9 @@
       "required": [
         "question",
         "answer",
-        "review_ref"
+        "review_ref",
+        "evaluation_type",
+        "reviewed_at"
       ],
       "properties": {
         "question": {
@@ -128,6 +130,20 @@
         "review_ref": {
           "type": "string",
           "minLength": 1
+        },
+        "evaluation_type": {
+          "const": "NORMALIZED_FACT"
+        },
+        "reviewed_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "accepted_answers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }

@@ -23,6 +23,11 @@
   "reviewed_target": {
     "question": "State the declared limitation of this synthetic case.",
     "answer": "Future-assisted anchors are not prefix-valid.",
-    "review_ref": "synthetic:annotation:001"
+    "review_ref": "synthetic:annotation:001",
+    "evaluation_type": "NORMALIZED_FACT",
+    "reviewed_at": "2026-02-01",
+    "accepted_answers": [
+      "Future assisted anchors are not prefix valid"
+    ]
   }
 }
