@@ -17,10 +17,12 @@ class CallBudget:
             raise ValueError("ACE model call limit invalid")
         self.limit = limit
         self.used = 0
+        self.exceeded = False
 
     def guard(self, fn):
         def counted(*args, **kwargs):
             if self.used >= self.limit:
+                self.exceeded = True
                 raise RuntimeError("ACE_MODEL_CALL_CAP_REACHED")
             self.used += 1
             return fn(*args, **kwargs)
@@ -61,6 +63,8 @@ def main():
         mode="offline", train_samples=args["train"],
         val_samples=args["val"], test_samples=[],
         data_processor=ScientificDataProcessor(), config=config)
+    if limiter.exceeded:
+        raise RuntimeError("ACE_MODEL_CALL_CAP_REACHED")
     print("PDRW_ACE_RESULT_JSON=" + json.dumps({
         "status": "ACE_RETURNED_CANDIDATE_ONLY",
         "model_calls": limiter.used, "save_dir": args["save_dir"],
