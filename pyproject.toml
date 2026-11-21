@@ -7,7 +7,7 @@ name = "pdrw-experience"
 version = "0.1.0"
 description = "Evidence-grounded scientific experience learning adapter"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["cryptography>=43,<48"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
