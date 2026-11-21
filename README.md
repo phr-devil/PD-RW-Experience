@@ -20,7 +20,7 @@ python -m pytest -q
 pdrw-exp case-check examples/case.synthetic.json
 pdrw-exp lesson-review examples/lesson.synthetic.json --cases examples/case.synthetic.json
 pdrw-exp ace-preflight examples/ace-cases.synthetic.jsonl
-pdrw-exp retrieve examples/lesson.synthetic.json --task-type experiment_design --query leakage
+pdrw-exp retrieve examples/lesson.synthetic.json --cases examples/case.synthetic.json --task-type experiment_design --query leakage --as-of 2026-04-01
 ```
 
 Tests and examples are synthetic and do not require model API keys or access original research files. The ACE bridge is opt-in; see [ACE integration](docs/ACE_INTEGRATION.md). No external model call occurs in ordinary commands.
