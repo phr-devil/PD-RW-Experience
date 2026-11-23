@@ -219,7 +219,7 @@ def test_import_refuses_existing_output_and_copies_no_files_on_block(tmp_path, c
     annotations.write_text(json.dumps(annotation), encoding="utf-8")
     out = tmp_path / "unused"
     assert main(["mirror-import", str(root), "--annotations", str(annotations),
-                 "--out-dir", str(out)]) == 0
+                 "--out-dir", str(out)]) == 3
     assert not out.exists()
     result = json.loads(capsys.readouterr().out)
     assert result["status"] == "BLOCKED"
@@ -237,3 +237,25 @@ def test_manifest_path_traversal_rejected(tmp_path):
     (root / "manifest.json").write_text(json.dumps(manifest))
     with pytest.raises((RecordError, FileNotFoundError)):
         load_mirror(root)
+
+
+def test_cannot_write_private_cases_inside_git_checkout(tmp_path):
+    from pdrw_experience.cli import _write_import
+    root = make_mirror(tmp_path)
+    mirror = load_mirror(root)
+    ann = metadata()
+    converted = convert_mirror(mirror, ann)
+    git_checkout = tmp_path / "checked-out-public-repo"
+    git_checkout.mkdir()
+    (git_checkout / ".git").mkdir()
+    with pytest.raises(RecordError, match="INSIDE_GIT_CHECKOUT_FORBIDDEN"):
+        _write_import(git_checkout / "private-cases", mirror, converted)
+
+
+def test_converted_case_conforms_to_versioned_json_schema(tmp_path):
+    from jsonschema import Draft202012Validator
+    root = make_mirror(tmp_path)
+    records = convert_mirror(load_mirror(root), metadata())["cases"]
+    schema = json.loads((Path(__file__).parents[1] / "schemas" / "case.schema.json").read_text())
+    for record in records:
+        Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER).validate(record)
