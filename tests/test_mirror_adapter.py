@@ -259,3 +259,23 @@ def test_converted_case_conforms_to_versioned_json_schema(tmp_path):
     schema = json.loads((Path(__file__).parents[1] / "schemas" / "case.schema.json").read_text())
     for record in records:
         Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER).validate(record)
+
+
+def test_stale_upstream_index_must_not_be_imported(tmp_path):
+    root = make_mirror(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["source"]["index_stale"] = True
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(RecordError, match="MIRROR_SOURCE_INDEX_STALE"):
+        load_mirror(root)
+
+
+def test_manifest_file_count_including_self_must_match(tmp_path):
+    root = make_mirror(tmp_path)
+    manifest_path = root / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["file_count_including_manifest"] = 100
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(RecordError, match="MIRROR_FILE_COUNT_MISMATCH"):
+        load_mirror(root)
