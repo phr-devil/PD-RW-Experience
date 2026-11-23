@@ -1,11 +1,13 @@
 """Offline-first CLI. All trust anchors are explicit host-controlled paths."""
 from __future__ import annotations
 import argparse
+import tempfile
 import json
 from pathlib import Path
 import sys
 
 from .ace_bridge import prepare_ace_samples, run_ace_offline
+from .mirror_adapter import load_mirror, preview_mirror, convert_mirror
 from .core import (RecordError, load_records, retrieve_guidance,
                    review_lesson, validate_case, validate_feedback)
 
@@ -62,6 +64,16 @@ def parser():
 
     feedback = sub.add_parser("feedback-check")
     feedback.add_argument("path")
+
+    inspect = sub.add_parser("mirror-inspect",
+                             help="Verify a read-only PD-RW-Agent case knowledge mirror")
+    inspect.add_argument("root")
+    ingest = sub.add_parser("mirror-import",
+                            help="Convert explicitly annotated mirror cases to private local artifacts")
+    ingest.add_argument("root")
+    ingest.add_argument("--annotations", required=True)
+    ingest.add_argument("--out-dir", required=True)
+    ingest.add_argument("--dry-run", action="store_true")
     return p
 
 
@@ -81,6 +93,46 @@ def _trusted(args):
                          if args.source_index else None)
     }
 
+
+
+def _write_import(out_dir, mirror, converted):
+    """Stage a brand-new output directory; never write to original mirror."""
+    import shutil
+    root = mirror["root"]
+    destination = Path(out_dir).expanduser().resolve()
+    if (destination.is_relative_to(root) or root.is_relative_to(destination)
+            or destination.exists()):
+        raise RecordError("IMPORT_OUTPUT_MUST_BE_NEW_AND_OUTSIDE_MIRROR")
+    parent = destination.parent
+    if not parent.is_dir():
+        raise RecordError("IMPORT_OUTPUT_PARENT_MISSING")
+    staged = Path(tempfile.mkdtemp(prefix=".pdrw-exp-staging-", dir=parent))
+    try:
+        (staged / "cases.jsonl").write_text(
+            "".join(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+                    for record in converted["cases"]), encoding="utf-8")
+        (staged / "source-index.json").write_text(
+            json.dumps(converted["source_index"], ensure_ascii=False,
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        report = {
+            "status": converted["status"],
+            "source_manifest_sha256": mirror["manifest_sha256"],
+            "selected_count": converted["selected_count"],
+            "imported_count": len(converted["cases"]),
+            "blocked": converted["blocked"],
+            "original_evidence_verified": False,
+            "historical_visibility_verified": False,
+            "model_calls": 0,
+        }
+        (staged / "report.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        if destination.exists():
+            raise RecordError("IMPORT_OUTPUT_ALREADY_EXISTS")
+        staged.rename(destination)
+    finally:
+        if staged.exists():
+            shutil.rmtree(staged)
 
 def main(argv=None):
     args = parser().parse_args(argv)
@@ -127,6 +179,26 @@ def main(argv=None):
                 receipts=_read_object(args.receipts), **extra)
         elif args.command == "feedback-check":
             output = [validate_feedback(x) for x in load_records(args.path)]
+        elif args.command == "mirror-inspect":
+            output = preview_mirror(load_mirror(args.root))
+        elif args.command == "mirror-import":
+            mirror = load_mirror(args.root)
+            result = convert_mirror(mirror, _read_object(args.annotations))
+            output = {
+                "status": result["status"],
+                "selected_count": result["selected_count"],
+                "imported_count": len(result["cases"]),
+                "blocked": result["blocked"],
+                "source_manifest_sha256": mirror["manifest_sha256"],
+                "original_evidence_verified": False,
+                "historical_visibility_verified": False,
+                "model_calls": 0,
+                "files_written": False,
+            }
+            if result["status"] == "READY_LOCAL_CASES" and not args.dry_run:
+                _write_import(args.out_dir, mirror, result)
+                output["files_written"] = True
+                output["output_dir"] = str(Path(args.out_dir).expanduser().resolve())
         else:
             raise RecordError("unknown command")
     except (RecordError, OSError, ValueError, json.JSONDecodeError) as exc:
