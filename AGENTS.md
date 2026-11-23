@@ -1,10 +1,10 @@
-# Working rules for this repository
+# Working rules for PD-RW-Experience
 
-1. Develop a thin scientific experience adapter, not another multi-agent orchestrator or LLM learning engine. Prefer ACE as an external pinned dependency.
-2. Read README and the one relevant design document; inspect existing code/tests before modifying interfaces. Keep changes compatible and test related modules together.
-3. PD-RW is policy authority; original project records and CASE_LIBRARY are source evidence; PD-RW-Agent owns existing science/context services. This project only emits P4 advisory lessons.
-4. Separate paper author claims, model-generated candidate insights, declared review metadata, signed review decisions, and independently verified science. Never upgrade one to another automatically; use host-pinned trust keys and actual source bytes for P4 export.
-5. No model calls, private-data transfer, training, protected datasets, SEALED or formal manuscript work unless explicitly authorized in an enforcement-capable host. In tests use synthetic input.
-6. Evaluation cases must not leak into training, retrieval, playbook updates or time-travel runs; failed/unknown checks fail closed.
-7. Implement connected, bounded tasks; run focused tests once; report changed interfaces, test evidence, real blockers and remaining integration work. Do not create redundant logs or large plans.
-8. Do not edit PD-RW, PD-RW-Agent or PD-RW-Orchestrator from within this repository without separate authorization.
+1. Prefer existing PD-RW-Agent read-only case mirror, ACE learning engine, and Orchestrator Guidance contract. Do not rebuild CASE_LIBRARY, host execution, or model reasoning tools.
+2. Preserve original project and Run authority. Case Mirror is derivative; its hash verifies the mirror file only. Keep original source link and `original_source_bytes_verified=false` until independently checked.
+3. No invented case methods, historical availability, protocol details, evidence strength, author approval or scientific effectiveness. Missing data stays UNKNOWN/BLOCKED.
+4. Keep TRAIN/VAL/TEST isolated by source group and exact known source; prevent retrospective time leakage. Treat unsupported semantic near-duplicates as a real pending check.
+5. Private research data and original CASE_LIBRARY stay outside this public repository and third-party model APIs until separately authorized. Tests use synthetic files.
+6. Experience is P4 advisory only; signed reviews cannot automatically become PD-RW hard rules. Host owns permission and reviewer identity.
+7. Do not execute paid ACE, training, SEALED, model-provider calls or other high-risk effects without independent explicit authorization and enforced host/provider budgets.
+8. Work at useful autonomous granularity, retain contracts and tests, avoid duplicate plans/logs, and report evidence and remaining scientific risks.

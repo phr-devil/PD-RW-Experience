@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "snapshot_as_of": "2026-11-23",
+  "cases": {
+    "REPLACE_WITH_REAL_CASE_ID": {
+      "split": "TRAIN",
+      "classification": "PRIVATE",
+      "case_type": "failure",
+      "method": "Provide a faithful method summary; do not invent the experimental protocol.",
+      "method_source_ref": "REPLACE_WITH_ORIGINAL_REFERENCE_OR_EXPLICIT_OPERATOR_NOTE"
+    }
+  }
+}

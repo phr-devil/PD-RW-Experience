@@ -146,6 +146,75 @@
           }
         }
       }
+    },
+    "mirror_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mirror_manifest_sha256",
+        "mirror_card_path",
+        "mirror_card_sha256",
+        "original_source_card_sha256",
+        "original_source_ids",
+        "original_source_refs",
+        "evidence_grade",
+        "source_type",
+        "method_source_ref",
+        "original_source_bytes_verified",
+        "mirror_card_bytes_verified",
+        "historical_visibility_verified"
+      ],
+      "properties": {
+        "mirror_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "mirror_card_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mirror_card_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "original_source_card_sha256": {
+          "type": "string",
+          "minLength": 1
+        },
+        "original_source_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "original_source_refs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence_grade": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "original_source_bytes_verified": {
+          "const": false
+        },
+        "mirror_card_bytes_verified": {
+          "const": true
+        },
+        "historical_visibility_verified": {
+          "const": false
+        }
+      }
     }
   }
 }

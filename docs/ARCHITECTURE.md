@@ -1,25 +1,30 @@
-# Architecture — fail-closed evidence-grounded experience
+# PD-RW-Experience architecture
 
-1. **Case Adapter:** accepts host-prepared structured records and source pointers. PDF parsing and CASE_LIBRARY integration are not yet implemented.
-2. **ACE Bridge:** data preflight creates only objectively annotated `NORMALIZED_FACT` tasks. The official ACE Generator/Reflector/Curator handles the learning loop; this repo does not replicate it.
-3. **Source & Review Trust:** optional declared lineage inspection versus mandatory detached Ed25519 receipt + original source-byte SHA-256 verification for export and real model calls. Signature is **not** scientific verification.
-4. **Experience Library:** stateless JSON/JSONL read-only lesson retrieval, bounded search, case visibility and signed evidence matching. Not a second original CASE_LIBRARY.
-5. **Orchestrator contract:** Guidance v1 `level=experience` P4 only. Decision, experimental authorization and PD-RW hard rules remain elsewhere.
-6. **Feedback:** unverified receipt only; no automatic confidence inflation, source modification or rule promotion.
+- **PD-RW:** authoritative scientific governance, author grants and decisions.
+- **PD-RW-Agent:** source project/case/Run verification and case-knowledge mirror export; no writes by Experience.
+- **Case Mirror adapter (v0.2.0a1):** internal consistency verification against a PD-RW-Agent v1.2 manifest, full byte hash checks of indexed mirror files, explicit local annotations, group-aware split isolation, and private ScientificCase staging. No original source hash attestation and no fabricated historical date.
+- **ACE adapter (v0.1.1):** pinned external engine, objective factual extraction only, signed target/grant preflight, bounded worker; not yet real scientific strategy distillation.
+- **Scientific review / experience library:** signed lesson review and source bytes verification, reviewed-only P4 retrieval, and feedback in unverified status; no auto-rule promotion.
+- **PD-RW-Orchestrator:** reads proposed P4 guidance via existing Guidance v1 contract; live end-to-end provider still pending.
+
+## Distinguish three types of source
+
+1. `CASE_LIBRARY` original project/PDF/Run is the primary scientific evidence; may be private.
+2. PD-RW-Agent's Markdown Case Knowledge Mirror is a *verified derivative text*, not an independent verification of original observations.
+3. Experience's `ScientificCase.source_refs` for this adapter intentionally point only to the mirror Markdown bytes, with `mirror_provenance.original_source_bytes_verified=false`. Never promote secondary evidence to original Run validation.
+
+A manifest + card checksum is internal integrity only. The host must separately verify the upstream mirror against its actual original library, control publication/data-use rights, pin the reviewer trust root and run original scientific review.
 
 ## Defense in depth
 
-- **Identity and authority:** original PD-RW/author records, host-granted filesystem/network permissions, trusted reviewer public key outside the inputs.
-- **Evidence:** hash actual files under an explicit trusted root; a declared review is insufficient.
-- **Learning:** protect TRAIN/VAL/TEST by case group and exact source digest, block TEST from adaptation, require `as_of` for source and review availability. Near-duplicate semantic case leakage still requires a separate audit.
-- **Paid calls:** dual opt-in + a separate `APPROVED_FOR_EXECUTION` signed run grant + pinned clean ACE commit; ACE in a killable subprocess with wall time and counted `timed_llm_call` invocations. This does not enforce provider retries, actual dollars or a full network sandbox; the trusted host must enforce those.
-- **Evaluation:** objective fact labels are normalized and may list preapproved variants; a freeform scientific strategy or novelty statement is NOT automatically graded.
-- **Advice:** signed, source-byte-matched REVIEWED cases can supply P4 guidance, but `scientific_validity_verified=false` remains true even after receipt verification.
+- Case group plus exact mirror-card hash split checks; no TEST examples sent to ACE adaptation.
+- Snapshot date is explicit and conservative; historical as-of replay requires historical original evidence.
+- No inference of missing method, research question from title, evidence strength or publication permission.
+- PRIVATE input stays local; external model calls remain separately gated.
+- Signed review means identity and subject binding, not research truth.
+- Paid calls are subject to host/provider spending caps in addition to worker call/time controls.
+- Orchestrator receives at most P4 advice; no permission escalation.
 
-## Scientific policy source
+## Verification status
 
-PD-RW-Agent rc/v1.0-integration at inspected commit `9177b6eb822aaa0d1482ef40f54369a8612c42dd`. The reader should treat this as reference lineage, not evidence of a locally installed version. Do not duplicate the science ledger.
-
-## Current engineering scope
-
-Unit/CLI tests are synthetic. Real source access, independent scientific adjudication, a production identity-aware key store, live ACE run and Orchestrator real handoff remain pending verification.
+Current CI: synthetic upstream-format mirror and CLI/ACE regression tests. Actual operator CASE_LIBRARY, WorkBuddy session, publication impact and improvement over case retrieval have **not** been tested.
