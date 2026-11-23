@@ -79,10 +79,13 @@ def load_mirror(root: str | Path) -> dict:
             manifest.get("mirror_version") != EXPECTED_MIRROR_VERSION or
             manifest.get("card_format") != EXPECTED_CARD_FORMAT):
         raise RecordError("MIRROR_VERSION_UNSUPPORTED")
+    if (manifest.get("source") or {}).get("index_stale") is True:
+        raise RecordError("MIRROR_SOURCE_INDEX_STALE")
     files = manifest.get("files")
     if not isinstance(files, list) or not 1 <= len(files) <= MAX_FILES:
         raise RecordError("MIRROR_FILE_LIST_INVALID")
-    if manifest.get("file_count") != len(files):
+    if (manifest.get("file_count") != len(files) or
+            manifest.get("file_count_including_manifest", len(files) + 1) != len(files) + 1):
         raise RecordError("MIRROR_FILE_COUNT_MISMATCH")
     verified = {}
     sizes = {}
