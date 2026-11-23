@@ -106,6 +106,8 @@ def _write_import(out_dir, mirror, converted):
     parent = destination.parent
     if not parent.is_dir():
         raise RecordError("IMPORT_OUTPUT_PARENT_MISSING")
+    if any((ancestor / ".git").exists() for ancestor in (parent, *parent.parents)):
+        raise RecordError("IMPORT_OUTPUT_INSIDE_GIT_CHECKOUT_FORBIDDEN")
     staged = Path(tempfile.mkdtemp(prefix=".pdrw-exp-staging-", dir=parent))
     try:
         (staged / "cases.jsonl").write_text(
@@ -205,7 +207,7 @@ def main(argv=None):
         print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
         return 3
     print(json.dumps(output, ensure_ascii=False, indent=2))
-    return 0
+    return 3 if args.command == "mirror-import" and output["status"] == "BLOCKED" else 0
 
 
 if __name__ == "__main__":
