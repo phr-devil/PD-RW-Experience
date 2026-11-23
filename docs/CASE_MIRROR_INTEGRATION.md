@@ -17,8 +17,8 @@ Install/configure PD-RW-Agent following its RC instructions, including `PDRW_CAS
 Example Windows PowerShell (paths are placeholders; replace with actual private paths):
 
 ~~~powershell
-pdrw-agent case-knowledge-build --out "D:\\PD-RW-runtime\\case-mirror" --scope-file "D:\\PD-RW-runtime\\case-scope.json"
-pdrw-agent case-knowledge-verify --dir "D:\\PD-RW-runtime\\case-mirror"
+pdrw-agent case-knowledge-build --out "D:\PD-RW-runtime\case-mirror" --scope-file "D:\PD-RW-runtime\case-scope.json"
+pdrw-agent case-knowledge-verify --dir "D:\PD-RW-runtime\case-mirror"
 ~~~
 
 Require upstream verification `status=MIRROR_VERIFIED` before proceeding. If upstream returns `MIRROR_PROBLEMS`, investigate rather than coercing status. A mirror may be internally valid but marked `publishable=false`; this does not grant external data transfer, and this adapter forbids converting those cases to PUBLIC.
@@ -26,7 +26,7 @@ Require upstream verification `status=MIRROR_VERIFIED` before proceeding. If ups
 ## 2. Inspect the mirror without changing source data
 
 ~~~powershell
-pdrw-exp mirror-inspect "D:\\PD-RW-runtime\\case-mirror"
+pdrw-exp mirror-inspect "D:\PD-RW-runtime\case-mirror"
 ~~~
 
 This validates all manifest-listed files against SHA-256 and byte counts, the `content_sha256`, the compact `indexes/cases.jsonl` index and each Markdown card's `---json` frontmatter. It checks card IDs, source grouping and index/card cross-fields. It reports counts only, not private content.
@@ -50,9 +50,9 @@ No `reviewed_target` is generated. This tool never asserts the scientific result
 ## 4. Import only to a new private local directory
 
 ~~~powershell
-pdrw-exp mirror-import "D:\\PD-RW-runtime\\case-mirror" --annotations "D:\\PD-RW-runtime\\case-annotations.json" --out-dir "D:\\PD-RW-runtime\\exp-import-001" --dry-run
+pdrw-exp mirror-import "D:\PD-RW-runtime\case-mirror" --annotations "D:\PD-RW-runtime\case-annotations.json" --out-dir "D:\PD-RW-runtime\exp-import-001" --dry-run
 
-pdrw-exp mirror-import "D:\\PD-RW-runtime\\case-mirror" --annotations "D:\\PD-RW-runtime\\case-annotations.json" --out-dir "D:\\PD-RW-runtime\\exp-import-001"
+pdrw-exp mirror-import "D:\PD-RW-runtime\case-mirror" --annotations "D:\PD-RW-runtime\case-annotations.json" --out-dir "D:\PD-RW-runtime\exp-import-001"
 ~~~
 
 A successful run creates:
